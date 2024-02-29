@@ -8,6 +8,8 @@ s3fs preserves the native object format for files, allowing use of other tools l
 
 ## Script Prerequisites
 
+This script has been tested on Oracle Linux 7/8/9 and Alma Linux 8/9.
+
 Before using this script, ensure that you have the following prerequisites:
 
 - [An OCI Object Storage bucket](https://docs.public.oneportal.content.oci.oraclecloud.com/en-us/iaas/Content/Object/Tasks/managingbuckets_topic-To_create_a_bucket.htm)

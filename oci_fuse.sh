@@ -25,15 +25,26 @@ else
     sudo mkdir -p $LOCAL_PATH
     sudo chown -R $USER:$USER $LOCAL_PATH
     sudo chown $USER:$USER $LOCAL_PATH
-
     sudo chmod 700 $LOCAL_PATH
     echo "${GREEN}Local path created${NC}"
 fi
 
 # Update the system
-echo "${GREEN}Updating system...${NC}"
-sudo dnf update -y
-echo "${GREEN}System update completed${NC}"
+while true; do
+    read -p "${CR}${YELLOW}Do you want to run a system update ?${NC}${CR}" GO_UPDATE
+    GO_UPDATE=$(echo "$GO_UPDATE" | tr '[:upper:]' '[:lower:]')
+
+    if [ "$GO_UPDATE" = "yes" ]; then
+        echo "${GREEN}Updating system...${NC}"
+        sudo dnf update -y
+        echo "${GREEN}System update completed${NC}"
+        break
+    elif [ "$GO_UPDATE" = "no" ]; then
+        break
+    else
+        echo "${RED}Invalid answer. Please enter 'yes' or 'no' ${NC}${CR}"
+    fi
+done
 
 # Check os-release
 if [ -e /etc/os-release ]; then
@@ -48,7 +59,13 @@ if [ -e /etc/os-release ]; then
         # Install EPEL repository
         echo "${GREEN}Installing EPEL repository...${NC}"
         sudo yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-$OS_VERSION_MAJOR.noarch.rpm -y
-        echo "${GREEN}EPEL repository installed${NC}"
+
+        if [ $? -eq 0 ]; then
+            echo "${GREEN}EPEL repository installed${NC}"
+        else
+            echo "${RED}Error: Unable to install EPEL repository"${NC}
+            exit
+        fi
     else
         echo "${RED}Error: VERSION_ID is not set in /etc/os-release${NC}"
     fi
@@ -59,8 +76,7 @@ fi
 # Install s3fs-fuse
 echo "${GREEN}Installing s3fs-fuse...${NC}"
 sudo yum install s3fs-fuse -y
-# Check the exit code of the yum command
-# $? is a special variable that holds the exit code of the last executed command.
+
 if [ $? -eq 0 ]; then
     echo "${GREEN}s3fs-fuse has been successfully installed${NC}"
 else
@@ -68,10 +84,16 @@ else
     exit
 fi
 
+# Fix issue on 7.x releases
+if [ $OS_VERSION_MAJOR -eq 7 ]; then
+    sudo chmod +x /usr/bin/fusermount
+fi
+
 # Prompt user for Customer Secret Key credentials
 read -p "${CR}${YELLOW}Enter your Customer Secret Key ID: ${NC}${CR}" KEY_ID
 read -p "${CR}${YELLOW}Enter your Customer Secret Key Secret: ${NC}${CR}" KEY_SECRET
 echo
+
 # Set API credentials in /etc/passwd-s3fs
 PWD_FILE="/etc/passwd-s3fs"
 echo "$KEY_ID:$KEY_SECRET" | sudo tee $PWD_FILE
@@ -99,23 +121,22 @@ URL="https://${NAMESPACE}.compat.objectstorage.${OCI_REGION_ID}.oraclecloud.com"
 
 # Mount OCI bucket using s3fs
 echo "${GREEN}Mounting OCI bucket...${NC}"
-#s3fs $BUCKET $LOCAL_PATH -o passwd_file=$PWD_FILE -o suid -o url=$URL -o use_path_request_style -o multipart_size=128 -o parallel_count=50 -o multireq_max=100 -o max_background=1000 -o endpoint=$OCI_REGION_ID
 s3fs $BUCKET $LOCAL_PATH -o passwd_file=$PWD_FILE -o suid -o url=$URL -o use_path_request_style -o endpoint=$OCI_REGION_ID
+#s3fs $BUCKET $LOCAL_PATH -o passwd_file=$PWD_FILE -o suid -o url=$URL -o use_path_request_style  -o endpoint=$OCI_REGION_ID -o multipart_size=128 -o parallel_count=50 -o multireq_max=100 -o max_background=1000
 
 if [ $? -eq 0 ]; then
-    echo "${GREEN}OCI bucket mounted${NC}${CR}"
-    # Get mounted filesystem information
+    echo "${GREEN}OCI bucket mounted ${NC}}"
     mounted_info=$(df -h | grep s3fs)
 else
     echo "${RED}Error while mounting bucket, please check provided information${NC}"
 fi
+
 # FSTAB section
 while true; do
     read -p "${CR}${YELLOW}Do you want to mount s3fs share at boot using FSTAB? (yes/no): ${NC}${CR}" answer
     answer=$(echo "$answer" | tr '[:upper:]' '[:lower:]')
 
     if [ "$answer" = "yes" ]; then
-        FSTAB=$"Yes"
         # Get user UID / GID
         id_output=$(id)
         U_ID=$(echo "$id_output" | awk -F'[=(]' '{print $2}')
@@ -123,10 +144,11 @@ while true; do
         # Add entry to /etc/fstab for automatic mounting on boot
         echo "${GREEN}Adding entry to /etc/fstab...${NC}"
         echo | sudo tee -a /etc/fstab
-        echo "# ${BUCKET} - S3FS mount point"| sudo tee -a /etc/fstab
-        #echo "$BUCKET $LOCAL_PATH fuse.s3fs use_path_request_style,passwd_file=$PWD_FILE,url=$URL,endpoint=$OCI_REGION_ID kernel_cache,multipart_size=128,parallel_count=50,multireq_max=100,max_background=1000,_netdev,allow_other,uid=1000,gid=1000 0 0" | sudo tee -a /etc/fstab
+        echo "# ${BUCKET} - S3FS mount point"| sudo tee -a /etc/fstab
         echo "$BUCKET $LOCAL_PATH fuse.s3fs _netdev,allow_other,use_path_request_style,passwd_file=$PWD_FILE,url=$URL,endpoint=$OCI_REGION_ID,uid=$U_ID,gid=$G_ID 0 0" | sudo tee -a /etc/fstab
+        #echo "$BUCKET $LOCAL_PATH fuse.s3fs _netdev,allow_other,use_path_request_style,passwd_file=$PWD_FILE,url=$URL,endpoint=$OCI_REGION_ID,kernel_cache,multipart_size=128,parallel_count=50,multireq_max=100,max_background=1000,uid=$U_ID,gid=$G_ID 0 0" | sudo tee -a /etc/fstab
         echo "${GREEN}Entry added to /etc/fstab${NC}${CR}"
+        FSTAB=$(sudo cat /etc/fstab | grep fuse.s3fs)
         break
     elif [ "$answer" = "no" ]; then
         FSTAB=$"No"
