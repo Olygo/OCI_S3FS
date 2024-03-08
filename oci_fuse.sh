@@ -46,33 +46,6 @@ while true; do
     fi
 done
 
-# Check os-release
-if [ -e /etc/os-release ]; then
-    # Source the os-release file to get the VERSION_ID
-    . /etc/os-release
-
-    # Check if VERSION_ID is set
-    if [ -n "$VERSION_ID" ]; then
-        # Extract the major version
-        OS_VERSION_MAJOR=$(echo "$VERSION_ID" | cut -d'.' -f1)
-
-        # Install EPEL repository
-        echo "${GREEN}Installing EPEL repository...${NC}"
-        sudo yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-$OS_VERSION_MAJOR.noarch.rpm -y
-
-        if [ $? -eq 0 ]; then
-            echo "${GREEN}EPEL repository installed${NC}"
-        else
-            echo "${RED}Error: Unable to install EPEL repository"${NC}
-            exit
-        fi
-    else
-        echo "${RED}Error: VERSION_ID is not set in /etc/os-release${NC}"
-    fi
-else
-    echo "${NC}Error: /etc/os-release file not found${NC}"
-fi
-
 # Install s3fs-fuse
 echo "${GREEN}Installing s3fs-fuse...${NC}"
 sudo yum install s3fs-fuse -y
@@ -80,8 +53,58 @@ sudo yum install s3fs-fuse -y
 if [ $? -eq 0 ]; then
     echo "${GREEN}s3fs-fuse has been successfully installed${NC}"
 else
-    echo "${RED}Error: Package installation failed"${NC}
-    exit
+    echo "${YELLOW}Unable to find s3fs-fuse package...${NC}"
+    # Check os-release
+    if [ -e /etc/os-release ]; then
+        # Source the os-release file to get the VERSION_ID
+        . /etc/os-release
+
+        # Check if VERSION_ID is set
+        if [ -n "$VERSION_ID" ]; then
+            # Extract the major version
+            OS_VERSION_MAJOR=$(echo "$VERSION_ID" | cut -d'.' -f1)
+
+            # Install EPEL repository
+            echo "${GREEN}Installing EPEL repository...${NC}"        
+            sudo yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-$OS_VERSION_MAJOR.noarch.rpm -y
+
+            if [ $? -eq 0 ]; then
+                echo "${GREEN}EPEL repository installed${NC}"
+            else
+                echo "${RED}Error: Unable to install EPEL repository"${NC}
+                exit
+            fi
+        else
+            echo "${RED}Error: VERSION_ID is not set in /etc/os-release${NC}"
+        fi
+    else
+        echo "${NC}Error: /etc/os-release file not found${NC}"
+    fi
+
+    # Install s3fs-fuse
+    echo "${GREEN}Installing s3fs-fuse...${NC}"
+    sudo yum install s3fs-fuse -y
+
+    if [ $? -eq 0 ]; then
+        echo "${GREEN}s3fs-fuse has been successfully installed${NC}"
+    else
+        echo "${RED}Error: Package installation failed"${NC}
+        echo "${RED}Error: Package installation failed"${NC}
+        sudo yum remove epel-release -y
+        sudo yum remove https://dl.fedoraproject.org/pub/epel/epel-release-latest-$OS_VERSION_MAJOR.noarch.rpm -y
+        sudo yum clean cache
+        sudo yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-$OS_VERSION_MAJOR.noarch.rpm -y
+        sudo yum install s3fs-fuse -y
+
+        if [ $? -eq 0 ]; then
+            echo "${GREEN}s3fs-fuse has been successfully installed${NC}"
+        else
+            echo "${RED}Error: Unable to find s3fs-fuse package"${NC}
+            echo "${RED}Error: Please check your epel-release repo"${NC}
+            exit
+        fi
+
+    fi
 fi
 
 # Fix issue on 7.x releases

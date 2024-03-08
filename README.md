@@ -29,7 +29,9 @@ Before using this script, ensure that you have the following prerequisites:
 Execute the script by running the following command in your terminal:
 
 	
-	curl https://raw.githubusercontent.com/Olygo/OCI-Fuse/main/oci_fuse.sh | bash
+	curl https://raw.githubusercontent.com/Olygo/OCI_S3FS/main/oci_fuse.sh -o oci_fuse.sh
+	chmod +x ./oci_fuse.sh
+	./oci_fuse.sh
 
 The script will prompt you to enter the following information:
 
