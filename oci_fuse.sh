@@ -31,7 +31,7 @@ fi
 
 # Update the system
 while true; do
-    read -p "${CR}${YELLOW}Do you want to run a system update ?${NC}${CR}" GO_UPDATE
+    read -p "${CR}${YELLOW}Do you want to run a system update ? (yes/no)${NC}${CR}" GO_UPDATE
     GO_UPDATE=$(echo "$GO_UPDATE" | tr '[:upper:]' '[:lower:]')
 
     if [ "$GO_UPDATE" = "yes" ]; then
@@ -156,7 +156,7 @@ fi
 
 # FSTAB section
 while true; do
-    read -p "${CR}${YELLOW}Do you want to mount s3fs share at boot using FSTAB? (yes/no): ${NC}${CR}" answer
+    read -p "${CR}${YELLOW}Do you want to mount s3fs share at boot using FSTAB ? (yes/no): ${NC}${CR}" answer
     answer=$(echo "$answer" | tr '[:upper:]' '[:lower:]')
 
     if [ "$answer" = "yes" ]; then
